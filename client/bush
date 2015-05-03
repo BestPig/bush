@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+# Created by BestPig
+
+from __future__ import print_function
+import requests
+from progressbar import Bar, Percentage, ETA, AdaptiveETA, \
+    AdaptiveTransferSpeed, ProgressBar
+from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
+import argparse
+import json
+import tempfile
+import tarfile
+import sys
+from os import path
+from distutils import util
+
+BASE_URL = "http://127.0.0.1/bush/server/"
+
+def print_message(*msgs):
+    print(*msgs, file=sys.stderr)
+    
+def action_upload_file(args):
+    parser.parse_args()
+
+    tmpFile = tempfile.TemporaryFile();
+    basename = path.basename(args.file)
+
+    if args.tag is None:
+        tag = next(iter(filter(bool, basename.split('.'))), basename)
+    else:
+        tag = args.tag
+
+    tar = tarfile.open("%s.tar.gz" % basename, "w:gz", fileobj=tmpFile)
+    try:
+        tar.add(args.file, arcname=basename)
+    except OSError as e:
+        exit(e)
+    tar.close()
+
+    tmpFile.seek(0)
+    
+    try:        
+        encoder = MultipartEncoder(
+        fields={'tag': tag,
+                'file': ('filename', tmpFile, 'application/octet-stream')}
+        )
+
+        print_message("Running: uploading [%s]" % tag)
+
+        widgets = [
+            Percentage(),
+            ' ', Bar(),
+            ' ', ETA(),
+            ' ', AdaptiveETA(),
+            ' ', AdaptiveTransferSpeed(),
+        ]
+
+        bar = ProgressBar(widgets=widgets, maxval=encoder.len)
+        bar.start()
+
+        monitor = MultipartEncoderMonitor(encoder, lambda monitor: bar.update(monitor.bytes_read))
+
+        r = requests.post(BASE_URL + 'index.php?request=upload', data=monitor, headers={'Content-Type': monitor.content_type})
+
+        bar.finish()
+        
+        if r.status_code != 200:
+            print_message("[FAIL] HTTP status %d received." % r.status_code)
+            return False
+        ret = json.loads(r.text)
+        if ret["status"] == 'OK':
+            print_message("[ OK ] File uploaded with tag [%s]." % ret['tag'])
+    except requests.exceptions.Timeout as e:
+        print_message(e)
+    except ValueError as e:
+        print_message("[FAIL] Invalid json received.")
+
+def action_list_file(args):
+    try:
+        r = requests.get(BASE_URL + "index.php?request=list")
+        if r.status_code != 200:
+            print_message("[FAIL] HTTP status %d received." % r.status_code)
+            return False
+        files = json.loads(r.text)
+        if not files:
+            print_message("[ OK ] No available uploaded files.")
+            return True
+        else:
+            print_message("\t  [tag]\t\t[filename]")
+            for f in files:
+                print_message("\t- %s\t\t{%s}" % (f['tag'], f["name"]))
+    except requests.exceptions.Timeout as e:
+        print_message(e)
+    except ValueError as e:
+        print_message("[FAIL] Invalid json received.")
+
+def action_get_file(args):
+    try:
+        r = requests.get(BASE_URL + "index.php?request=get", params={"tag": args.tag})
+        if r.status_code != 200:
+            print_message("[FAIL] HTTP status %d received." % r.status_code)
+            return False
+    except requests.exceptions.Timeout as e:
+        exit(e)
+
+    file_size = int(r.headers['Content-Length'].strip())
+
+    tmpFile = tempfile.TemporaryFile();
+    file_size_dl = 0
+    block_sz = 8192
+
+    widgets = [
+        Percentage(),
+        ' ', Bar(),
+        ' ', ETA(),
+        ' ', AdaptiveETA(),
+        ' ', AdaptiveTransferSpeed(),
+    ]
+    
+    print_message("Running: downloading [%s]" % args.tag)
+    
+    bar = ProgressBar(widgets=widgets, maxval=file_size)
+    bar.start()
+
+    for buf in r.iter_content(block_sz):
+        if not buf:
+            break
+        file_size_dl += len(buf)
+        tmpFile.write(buf)
+        bar.update(file_size_dl)
+    bar.finish()
+    tmpFile.seek(0)
+
+    tar = tarfile.open(None, "r:gz", fileobj=tmpFile)
+    files = tar.getnames()
+    for f in files:
+        current_file = path.join(args.dest, f)
+        if path.isfile(current_file) or path.isdir(path.realpath(current_file)):
+            if not util.strtobool(input("The file '%s' already exists, do you want to overwrite it? " % current_file)):
+                exit("[FAIL] File '%s' already exists in you filesystem." % current_file)
+    if args.dest == '-':
+        args.dest = '/dev/stdout'
+    if len(files) == 1 and not path.isdir(args.dest):
+        tar.getmember(files[0]).path = path.basename(args.dest)
+        files[0] = path.basename(args.dest)
+        args.dest = path.dirname(args.dest)
+        tar.extract(tar.getmember(files[0]), args.dest)
+    else:
+        try:
+            tar.extractall(args.dest)
+        except IOError as e:
+            exit(e)
+    if len(files) > 0:
+        print_message("[ OK ] %s successfully extracted." % path.join(args.dest, files[0]))
+        if not sys.stdout.isatty():
+            print(files[0])
+
+def action_delete_file(args):
+    try:
+        r = requests.get(BASE_URL + "index.php?request=delete", params={"tag": args.tag})
+        if r.status_code != 200:
+            print_message("[FAIL] HTTP status %d received." % r.status_code)
+            return False
+        ret = json.loads(r.text)
+        if ret['status'] == "OK":
+            exit("[ OK ] '%s' tag sucessfully deleted" % args.tag)        
+    except requests.exceptions.Timeout as e:
+        exit(e)
+    except ValueError as e:
+        print_message("Invalid json received.")
+    exit("[FAIL] Unknown error happens")
+
+def action_reset_file(args):
+    try:
+        r = requests.get(BASE_URL + "index.php?request=reset")
+        if r.status_code != 200:
+            print_message("[FAIL] HTTP status %d received." % r.status_code)
+            return False
+        ret = json.loads(r.text)
+        if ret['status'] == "OK":
+            nb_deleted = int(ret['files_deleted'])
+            if nb_deleted == 0:
+                exit("[ OK ] No files to deleted.")
+            else:
+                exit("[ OK ] %d file%c deleted." % (nb_deleted, 's' if nb_deleted > 1 else ''));
+    except requests.exceptions.Timeout as e:
+        exit(e)
+    except ValueError as e:
+        exit("[FAIL] Invalid json received.")
+    print_message("[FAIL] Error, cannot reset files.")
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser_subparsers = parser.add_subparsers()
+
+    sub = parser_subparsers.add_parser('ls', help="List informations about files already uploaded")
+    sub.set_defaults(action=action_list_file)
+
+    sub = parser_subparsers.add_parser('up', help="Upload a new file")
+    sub.set_defaults(action=action_upload_file)
+    sub.add_argument('file', type=path.realpath,
+                     help='Path of the file to upload')
+    sub.add_argument('tag', nargs="?", default=None,
+                     help='tag, the name to specify to get the file easily')
+
+    sub = parser_subparsers.add_parser('dl', help="Download a file")
+    sub.set_defaults(action=action_get_file)
+    sub.add_argument('tag',
+                     help='tag, the name to specify to get the file easily')
+    sub.add_argument('dest', nargs='?', default='.',
+                    help="destination directory where the file will be downloaded")
+
+    sub = parser_subparsers.add_parser('rm', help="Remove an uploaded file")
+    sub.set_defaults(action=action_delete_file)
+    sub.add_argument('tag',
+                     help='tag, the name to specify to delete the file easily')
+
+    sub = parser_subparsers.add_parser('reset', help="Delete all files")
+    sub.set_defaults(action=action_reset_file)
+
+    data = parser.parse_args()
+    data.action(data)
