@@ -42,6 +42,7 @@ setup(
     scripts=['bin/bush'],
     packages=['bush'],
     package_dir={'bush': 'bush'},
+    package_data={'bush': ['config.yaml']},
 
     install_requires=requirements,
 )

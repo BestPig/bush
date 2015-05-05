@@ -1,3 +1,4 @@
-requests-toolbelt
+pyyaml
+appdirs
 progressbar2
-
+requests-toolbelt
