@@ -34,6 +34,12 @@ class BushAPI():
         basename = os.path.basename(filepath)
         return next(part for part in basename.split('.') if part)
 
+    def sanitize_tag(self, tag):
+        for sufix in [".tar.gz"]:
+            if tag.endswith(sufix):
+                tag = tag[:-len(sufix)]
+        return tag
+
     def assert_response(self, r, acceptable=(200,)):
         if r.status_code not in acceptable:
             raise RuntimeError("HTTP status %d received." % r.status_code)
@@ -50,6 +56,7 @@ class BushAPI():
     def upload(self, filepath, tag=None, callback=None):
 
         tag = tag or self.tag_for_path(filepath)
+        tag = self.sanitize_tag(tag)
 
         basename = os.path.basename(filepath)
 
@@ -80,6 +87,9 @@ class BushAPI():
         r = requests.post(self.url('index.php?request=upload'), data=monitor,
                           headers={'Content-Type': monitor.content_type})
 
+        if _callback:
+            del _callback
+
         self.assert_response(r)
         data = r.json()
         self.assert_status(data)
@@ -87,6 +97,8 @@ class BushAPI():
         return tag
 
     def download(self, tag, dest, callback=None, chunksz=8192):
+
+        tag = self.sanitize_tag(tag)
 
         if dest == '-':
             dest = '/dev/stdout'
@@ -112,6 +124,8 @@ class BushAPI():
 
             if callback is not None:
                 callback(done)
+
+        del callback
 
         if todo != done:
             raise RuntimeError("Not enough data received.")
@@ -150,6 +164,8 @@ class BushAPI():
             tar.extract(fo, fdest)
 
     def delete(self, tag):
+
+        tag = self.sanitize_tag(tag)
 
         r = requests.get(self.url("index.php?request=delete"),
                          params={"tag": tag})
