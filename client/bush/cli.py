@@ -48,7 +48,10 @@ def do_list_file(api, args):
     files = api.list()
     maxlen = max(len(f['tag']) for f in files) if files else 0
     for f in files:
-        print("%-*s  -> %s" % (maxlen, f['tag'], f['name'][:-7]))
+        name = f['name']
+        if name.endswith('.tar.gz'):
+            name = name[:-7]  # we could add special formatting here.
+        print("%-*s  -> %s" % (maxlen, f['tag'], name))
 
 
 def do_upload_file(api, args):
