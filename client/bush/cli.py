@@ -97,7 +97,9 @@ def main():
 
     sub = subs.add_parser('reset', help="delete all files")
     sub.set_defaults(callback=do_reset_file)
-    parser.add_argument('-u', '--url', help="API endpoint", default=BASE_URL)
+    parser.add_argument('-u', '--url', default=BASE_URL, help="API endpoint")
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help="full traceback for exceptions")
 
     args = parser.parse_args()
 
@@ -107,5 +109,5 @@ def main():
         args.callback(api, args)
     except KeyboardInterrupt:
         pass  # Canceled by user :(
-    except Exception as e:
+    except Exception if not args.debug else () as e:
         exit(e)
