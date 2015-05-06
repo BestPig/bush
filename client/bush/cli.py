@@ -6,9 +6,7 @@ import progressbar
 from distutils import util
 
 import bush.api
-
-
-BASE_URL = "http://127.0.0.1/bush/server/"
+import bush.config
 
 
 class ShowProgress():
@@ -71,7 +69,10 @@ def do_reset_file(api, args):
 
 def main():
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Simplistic file sharing. ",
+                                     epilog="Configuration file is searched "
+                                     "for in the following locations: %s" %
+                                     ", ".join(bush.config.get_configpaths()))
     subs = parser.add_subparsers(dest='action')
     subs.required = True
 
@@ -97,13 +98,22 @@ def main():
 
     sub = subs.add_parser('reset', help="delete all files")
     sub.set_defaults(callback=do_reset_file)
-    parser.add_argument('-u', '--url', default=BASE_URL, help="API endpoint")
+    parser.add_argument('-u', '--url', help="API endpoint")
+    parser.add_argument("-c", "--config", type=argparse.FileType("r"),
+                        help="path overwriting the default configuration file")
     parser.add_argument('-d', '--debug', action='store_true',
                         help="full traceback for exceptions")
 
     args = parser.parse_args()
 
-    api = UIAPI(args.url)
+    config = bush.config.load_config(args.config)
+
+    url = args.url or config.get('url')
+
+    if url is None:
+        exit("No URL specified, check your configuration or specify --url.")
+
+    api = UIAPI(url)
 
     try:
         args.callback(api, args)
