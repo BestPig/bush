@@ -48,9 +48,9 @@ class UIAPI(bush.api.BushAPI):
 
 def do_list_file(api, args):
     files = api.list()
-    maxlen = max(len(f['tag']) for f in files)
+    maxlen = max(len(f['tag']) for f in files) if files else 0
     for f in files:
-        print("%-*s\t%s" % (maxlen, f['tag'], f['name']))
+        print("%-*s  -> %s" % (maxlen, f['tag'], f['name'][:-7]))
 
 
 def do_upload_file(api, args):
