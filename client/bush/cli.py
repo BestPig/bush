@@ -69,7 +69,10 @@ def do_reset_file(api, args):
 
 def main():
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Simplistic file sharing. ",
+                                     epilog="Configuration file is searched "
+                                     "for in the following locations: %s" %
+                                     ", ".join(bush.config.get_configpaths()))
     subs = parser.add_subparsers(dest='action')
     subs.required = True
 
