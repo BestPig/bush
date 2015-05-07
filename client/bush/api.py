@@ -33,7 +33,10 @@ class BushAPI():
 
     def tag_for_path(self, filepath):
         basename = os.path.basename(filepath)
-        return next(part for part in basename.split('.') if part)
+        for part in basename.split('.'):
+            if part:
+                return part
+        return basename  # lol: this was only dots!
 
     def sanitize_tag(self, tag):
         for sufix in [".tar.gz"]:
@@ -73,10 +76,11 @@ class BushAPI():
 
     def upload(self, filepath, tag=None, callback=None):
 
+        filepath = os.path.realpath(filepath)
+        basename = os.path.basename(filepath)
+
         tag = tag or self.tag_for_path(filepath)
         tag = self.sanitize_tag(tag)
-
-        basename = os.path.basename(filepath)
 
         tmp = tempfile.TemporaryFile()
 
