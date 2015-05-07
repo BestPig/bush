@@ -1,7 +1,10 @@
 import sys
+import time
 import pprint
 import argparse
 import progressbar
+import datetime
+import operator
 
 from distutils import util
 
@@ -44,29 +47,47 @@ class UIAPI(bush.api.BushAPI):
         return status
 
 
-def do_list_file(api, args):
+def do_list(api, args):
     files = api.list()
-    maxlen = max(len(f['tag']) for f in files) if files else 0
+    maxlen = max(len(f.tag) for f in files) if files else 0
     for f in files:
-        name = f['name']
-        if name.endswith('.tar.gz'):
-            name = name[:-7]  # we could add special formatting here.
-        print("%-*s  -> %s" % (maxlen, f['tag'], name))
+        f.output(align=maxlen)
 
 
-def do_upload_file(api, args):
+def do_wait(api, args):
+
+    latest = None
+    update = datetime.datetime.now() - datetime.timedelta(seconds=args.age)
+
+    knowntags = None
+
+    while not latest:
+        tags = set()
+        for f in api.list():
+            if f.date > update and not (latest and latest.date > f.date):
+                latest = f
+            elif knowntags is not None and f.tag not in knowntags:
+                latest = f
+            tags.add(f.tag)
+        knowntags = tags
+
+    latest.output()
+    api.download(latest.tag, '.', callback=ShowProgress)
+
+
+def do_upload(api, args):
     api.upload(args.file, tag=args.tag, callback=ShowProgress)
 
 
-def do_get_file(api, args):
+def do_download(api, args):
     api.download(args.tag, args.dest, callback=ShowProgress)
 
 
-def do_delete_file(api, args):
+def do_delete(api, args):
     api.delete(args.tag)
 
 
-def do_reset_file(api, args):
+def do_reset(api, args):
     api.reset()
 
 
@@ -80,27 +101,32 @@ def main():
     subs.required = True
 
     sub = subs.add_parser('ls', help="list information about available files")
-    sub.set_defaults(callback=do_list_file)
+    sub.set_defaults(callback=do_list)
+
+    sub = subs.add_parser('wait', help="wait for a new file and download it")
+    sub.set_defaults(callback=do_wait)
+    sub.add_argument('-a', '--age', default=0, type=int,
+                     help="this many seconds old is new")
 
     sub = subs.add_parser('up', help="upload a new file")
-    sub.set_defaults(callback=do_upload_file)
+    sub.set_defaults(callback=do_upload)
     sub.add_argument('file', help='path of the file to upload')
     sub.add_argument('tag', nargs="?", default=None,
                      help='the name associated with the file to upload')
 
     sub = subs.add_parser('dl', help="download a file")
-    sub.set_defaults(callback=do_get_file)
+    sub.set_defaults(callback=do_download)
     sub.add_argument('tag',
                      help='the name associated with the file to download')
     sub.add_argument('dest', nargs='?', default='.',
                      help="path where the file should be downloaded")
 
     sub = subs.add_parser('rm', help="remove an uploaded file")
-    sub.set_defaults(callback=do_delete_file)
+    sub.set_defaults(callback=do_delete)
     sub.add_argument('tag', help='the name associated with the file to delete')
 
     sub = subs.add_parser('reset', help="delete all files")
-    sub.set_defaults(callback=do_reset_file)
+    sub.set_defaults(callback=do_reset)
     parser.add_argument('-u', '--url', help="API endpoint")
     parser.add_argument("-c", "--config", type=argparse.FileType("r"),
                         help="path overwriting the default configuration file")
@@ -127,6 +153,6 @@ you are doing. But if something fails you might want to try to add one.""",
     try:
         args.callback(api, args)
     except KeyboardInterrupt:
-        pass  # Canceled by user :(
+        print()  # Canceled by user :(
     except Exception if not args.debug else () as e:
         exit(e)
