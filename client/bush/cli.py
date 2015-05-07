@@ -122,6 +122,11 @@ def main():
     sub.add_argument('tag', nargs="?", default=None,
                      help='the name associated with the file to upload')
 
+    sub = subs.add_parser('ups', help="upload multiple files")
+    sub.set_defaults(callback=do_upload)
+    sub.add_argument('file', nargs='+', help='path of the file to upload')
+    sub.add_argument('tag', help='the name associated with the file to upload')
+
     sub = subs.add_parser('dl', help="download a file")
     sub.set_defaults(callback=do_download)
     sub.add_argument('tag',
