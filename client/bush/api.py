@@ -51,19 +51,20 @@ class BushAPI():
 
     def check_target(self, dest, fdest):
 
-        ok = True
+        if fdest != dest and not fdest.startswith(dest + os.sep):
+            if not self.confirmation("Attempting to write to %r, "
+                                     "outside target." % fdest,
+                                     level=EXTREME):
+                return False
 
-        if ok and fdest != dest and not fdest.startswith(dest + os.sep):
-            ok = self.confirmation(
-                "Attempting to write to %r, outside target." % fdest,
-                level=EXTREME)
+        try:
+            open(fdest, "x").close()
+        except FileExistsError:
+            if not self.confirmation("Attempting to write to %r, file "
+                                     "already exists." % fdest, level=HIGH):
+                return False
 
-        if ok and (os.path.isfile(fdest) or os.path.isdir(fdest)):
-            ok = self.confirmation(
-                "Attempting to write to %r, file already exists." % fdest,
-                level=HIGH)
-
-        return ok
+        return True
 
     def list(self):
         r = requests.get(self.url("index.php?request=list"))
