@@ -72,10 +72,11 @@ class BushAPI():
 
     def upload(self, filepath, tag=None, callback=None):
 
+        filepath = os.path.realpath(filepath)
+        basename = os.path.basename(filepath)
+
         tag = tag or self.tag_for_path(filepath)
         tag = self.sanitize_tag(tag)
-
-        basename = os.path.basename(filepath)
 
         tmp = tempfile.TemporaryFile()
 
