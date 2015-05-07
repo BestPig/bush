@@ -113,6 +113,12 @@ def main():
     if url is None:
         exit("No URL specified, check your configuration or specify --url.")
 
+    if not url.endswith('/'):
+        print("""\
+The API URL doesn't end with a '/', I'll go on and assume you know what
+you are doing. But if something fails you might want to try to add one.""",
+              file=sys.stderr)
+
     api = UIAPI(url)
 
     try:
