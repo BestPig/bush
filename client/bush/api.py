@@ -1,4 +1,5 @@
 import os
+import cgi
 import json
 import tarfile
 import tempfile
@@ -47,6 +48,22 @@ class BushAPI():
     def assert_status(self, r, acceptable=("OK",)):
         if r["status"] != 'OK':
             raise RuntimeError("Server is not OK despite sending 200 OK.")
+
+    def check_target(self, dest, fdest):
+
+        ok = True
+
+        if ok and fdest != dest and not fdest.startswith(dest + os.sep):
+            ok = self.confirmation(
+                "Attempting to write to %r, outside target." % fdest,
+                level=EXTREME)
+
+        if ok and (os.path.isfile(fdest) or os.path.isdir(fdest)):
+            ok = self.confirmation(
+                "Attempting to write to %r, file already exists." % fdest,
+                level=HIGH)
+
+        return ok
 
     def list(self):
         r = requests.get(self.url("index.php?request=list"))
@@ -110,13 +127,27 @@ class BushAPI():
 
         self.assert_response(r)
 
+        ctype, params = cgi.parse_header(r.headers['Content-Disposition'])
+        filename = params['filename']
+
         todo = int(r.headers['Content-Length'])
         done = 0
 
         if callback is not None:
             callback = callback(todo)
 
-        tmp = tempfile.TemporaryFile()
+        if not filename.endswith('.tar.gz'):
+            extract_archive = False
+            # Attempt to write to target directly.
+            fdest = os.path.realpath(os.path.join(dest, filename))
+            if not self.check_target(dest, fdest):
+                return
+            tmp = open(fdest, 'wb')
+
+        else:
+            extract_archive = True
+            # Use a temporary file and extract it.
+            tmp = tempfile.TemporaryFile()
 
         for chunk in r.iter_content(chunksz):
             tmp.write(chunk)
@@ -130,7 +161,12 @@ class BushAPI():
         if todo != done:
             raise RuntimeError("Not enough data received.")
 
+        if not extract_archive:
+            return
+
         tmp.seek(0)
+
+        # Otherwise we need to unpack it:
 
         tar = tarfile.open(None, "r:gz", fileobj=tmp)
         files = tar.getnames()
@@ -142,19 +178,7 @@ class BushAPI():
             else:
                 fdest = dest
 
-            ok = True
-
-            if ok and fdest != dest and not fdest.startswith(dest + os.sep):
-                ok = self.confirmation(
-                    "Attempting to write to %r, outside target." % fdest,
-                    level=EXTREME)
-
-            if ok and (os.path.isfile(fdest) or os.path.isdir(fdest)):
-                ok = self.confirmation(
-                    "Attempting to write to %r, file already exists." % fdest,
-                    level=HIGH)
-
-            if not ok:
+            if not self.check_target(dest, fdest):
                 continue
 
             fo = tar.getmember(f)
