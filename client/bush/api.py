@@ -79,7 +79,7 @@ class BushAPI():
         if r["status"] != 'OK':
             raise RuntimeError("Server is not OK despite sending 200 OK.")
 
-    def check_target(self, dest, fdest):
+    def check_target(self, dest, fdest, isdir=False, placeholder=True):
 
         if fdest != dest and not fdest.startswith(dest + os.sep):
             if not self.confirmation("Attempting to write to %r, "
@@ -87,12 +87,26 @@ class BushAPI():
                                      level=EXTREME):
                 return False
 
+        if isdir:
+            try:
+                if placeholder:
+                    os.makedirs(fdest)
+            except FileExistsError:
+                pass
+            return True
+
         try:
-            open(fdest, "x").close()
+            if placeholder:
+                open(fdest, "x").close()
+            elif os.path.lexists(fdest):
+                raise FileExistsError()
         except FileExistsError:
-            if not self.confirmation("Attempting to write to %r, file "
+            if not self.confirmation("Attempting to write to %r, but file "
                                      "already exists." % fdest, level=HIGH):
                 return False
+
+            if not placeholder:
+                os.unlink(fdest)
 
         return True
 
@@ -111,7 +125,8 @@ class BushAPI():
 
         tmp = tempfile.TemporaryFile()
 
-        tar = tarfile.open("%s.tar.gz" % basename, "w:gz", fileobj=tmp)
+        tarname = "%s.tar.gz" % basename
+        tar = tarfile.open(tarname, "w:gz", fileobj=tmp)
         tar.add(filepath, arcname=basename)
         tar.close()
 
@@ -119,7 +134,7 @@ class BushAPI():
 
         encoder = MultipartEncoder(fields={
             'tag': tag,
-            'file': (basename, tmp, 'application/octet-stream')
+            'file': (tarname, tmp, 'application/octet-stream')
         })
 
         if callback is not None:
@@ -149,11 +164,6 @@ class BushAPI():
 
         tag = self.sanitize_tag(tag)
 
-        if dest == '-':
-            dest = '/dev/stdout'
-        else:
-            dest = os.path.realpath(dest)
-
         r = requests.get(self.url("index.php?request=get"),
                          params={"tag": tag}, stream=True)
 
@@ -162,24 +172,34 @@ class BushAPI():
         ctype, params = cgi.parse_header(r.headers['Content-Disposition'])
         filename = params['filename']
 
+        extract_archive = filename.endswith('.tar.gz')
+
+        # This is delicate. If the destination isn't a
+        # folder we want to rename the downloaded data
+        # accordingly. However even if it is a folder
+        # we still want to get the name if we are about
+        # to extract from an archive because we'll be
+        # able to do smart things.
+        if extract_archive or not os.path.isdir(dest):
+            dest, filename = os.path.split(dest)
+
+        dest = os.path.realpath(dest)
+
         todo = int(r.headers['Content-Length'])
         done = 0
 
         if callback is not None:
             callback = callback(todo)
 
-        if not filename.endswith('.tar.gz'):
-            extract_archive = False
-            # Attempt to write to target directly.
+        if extract_archive:
+            # Use a temporary file for extraction.
+            tmp = tempfile.TemporaryFile()
+        else:
+            # Or attempt to write to target directly.
             fdest = os.path.realpath(os.path.join(dest, filename))
             if not self.check_target(dest, fdest):
                 return
             tmp = open(fdest, 'wb')
-
-        else:
-            extract_archive = True
-            # Use a temporary file and extract it.
-            tmp = tempfile.TemporaryFile()
 
         for chunk in r.iter_content(chunksz):
             tmp.write(chunk)
@@ -196,28 +216,61 @@ class BushAPI():
         if not extract_archive:
             return
 
-        tmp.seek(0)
-
         # Otherwise we need to unpack it:
 
+        tmp.seek(0)
         tar = tarfile.open(None, "r:gz", fileobj=tmp)
-        files = tar.getnames()
 
-        for f in files:
+        members = tar.getmembers()
 
-            if len(files) != 1 or os.path.isdir(dest):
-                fdest = os.path.realpath(os.path.join(dest, f))
-            else:
-                fdest = dest
+        # If the user's destination is not a folder filename is set.
+        # In this case we need to do our best to rename the contents
+        # of the archive to be this filename. But if there are multiple
+        # files at the root of the archive this is not possible. In
+        # that case we'll create a folder named filename and put
+        # everything inside.
 
-            if not self.check_target(dest, fdest):
-                continue
+        roots = set(m.name.split(os.sep)[0] for m in members)
+        singleroot = roots.pop() if len(roots) == 1 else None
 
-            fo = tar.getmember(f)
+        if not filename:
+            def _transform(path):
+                return path
+        elif singleroot is not None:
+            def _transform(path):
+                # This is the tricky case: replace the root.
+                if path == singleroot or path.startswith(singleroot + os.sep):
+                    return filename + path[len(singleroot):]
+                return path
+        else:
+            # There is a destination name but we can't rename
+            # multiple entries, create a folder to hold them.
 
-            # setting the absolute path, should ensure correct extraction.
-            fo.path = fdest
-            tar.extract(fo, fdest)
+            try:
+                os.mkdir(os.path.join(dest, filename))
+            except FileExistsError:
+                pass
+
+            def _transform(path):
+                return os.path.join(filename, path)
+
+        for m in members:
+            m.name = _transform(m.name)
+            if m.issym() or m.islnk():
+                m.linkname = _transform(m.linkname)
+
+        # Make sure we check in order, we need have a chance to
+        # create the parent directories before testing children.
+        sortedmembers = sorted(members, key=lambda m: m.name)
+
+        def check_member(member):
+            fdest = os.path.join(dest, member.name)
+            return self.check_target(dest, fdest, member.isdir(),
+                                     placeholder=not member.issym())
+
+        members = list(filter(check_member, sortedmembers))
+
+        tar.extractall(path=dest, members=members)
 
     def delete(self, tag):
 

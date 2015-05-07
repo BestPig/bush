@@ -118,7 +118,7 @@ def main():
     sub.set_defaults(callback=do_download)
     sub.add_argument('tag',
                      help='the name associated with the file to download')
-    sub.add_argument('dest', nargs='?', default='.',
+    sub.add_argument('dest', nargs='?', default='./',
                      help="path where the file should be downloaded")
 
     sub = subs.add_parser('rm', help="remove an uploaded file")
