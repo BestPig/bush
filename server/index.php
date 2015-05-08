@@ -9,7 +9,7 @@ $db = new Storage(DATAPATH.'/files.sqlite', DATAPATH);
 
 if (isset($_GET['request'])) {
 	if ($_GET['request'] == "upload" && !empty($_POST['tag']) && !empty($_FILES['file']['name'])) {
-		$id = $db->addFile($_POST['tag'], $_FILES['file']['name'].".tar.gz", 0);
+		$id = $db->addFile($_POST['tag'], $_FILES['file']['name'], 0);
 		if ($id !== NULL) {
 			$filepath = DATAPATH."/".$id.".bin";
 			if (move_uploaded_file($_FILES['file']['tmp_name'], $filepath) && file_exists($filepath)) {
@@ -24,8 +24,8 @@ if (isset($_GET['request'])) {
 
 	if ($_GET['request'] == 'get' && !empty($_GET['tag'])) {
 		$file = $db->getFile($_GET['tag']);
-		$filepath = DATAPATH."/".$file[0]['id'].".bin";
-		if (!empty($file)) {
+		if (!empty($file[0]['id']) && !empty($file[0]['name'])) {
+			$filepath = DATAPATH."/".$file[0]['id'].".bin";
 			header("Content-Disposition: attachment; filename=" . urlencode($file[0]['name']));    
 			header("Content-Type: application/force-download");
 			header("Content-Type: application/octet-stream");
