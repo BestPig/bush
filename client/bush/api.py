@@ -117,7 +117,10 @@ class BushAPI():
         else:
             filepaths = filepath
 
-        tag = tag or self.tag_for_path(filepath)
+        if tag is None and len(filepaths) != 1:
+            raise ValueError("Must specify tag for multifile.")
+
+        tag = tag or self.tag_for_path(filepaths[0])
 
         tmp = tempfile.TemporaryFile()
         tar = tarfile.open("bush_upload.tar.gz", "w:gz", fileobj=tmp)
