@@ -35,9 +35,14 @@ class BushFile():
         return "BushFile(tag=%s, name=%s, date=%s, compressed=%s)" % (
             self.tag, self.name, self.data, self.compressed)
 
-    def output(self, file=sys.stdout, align=0):
-        print("%s\t%-*s  -> %s" % (self.date.humanize(),
-                                   align, self.tag, self.name), file=file)
+    def output(self, file=sys.stdout, align=0, humanize=True):
+        if humanize:
+            date = self.date.humanize()
+        else:
+            date = self.date.strftime("%Y-%m-%d %H:%M:%S")
+
+        print("%s\t%-*s  -> %s" % (date, align, self.tag, self.name),
+              file=file)
 
 
 class BushAPI():
