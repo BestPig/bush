@@ -54,7 +54,7 @@ def do_list(api, args):
     files = api.list()
     maxlen = max(len(f.tag) for f in files) if files else 0
     for f in files:
-        f.output(align=maxlen, humanize=not args.exact)
+        f.output(align=maxlen, extended=args.exact)
 
 
 def do_wait(api, args):

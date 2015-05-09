@@ -21,7 +21,7 @@ EXTREME = 4
 
 class BushFile():
 
-    def __init__(self, tag, name, date=0, compressed=None, **kwargs):
+    def __init__(self, tag, name, date=0, compressed=None, url=None, **kwargs):
 
         if compressed is None:
             compressed = name.endswith('.tar.gz')
@@ -30,19 +30,24 @@ class BushFile():
         self.compressed = compressed
         self.name = name[:-7] if self.compressed else name
         self.date = arrow.get(date)
+        self.url = url
 
     def __repr__(self):
         return "BushFile(tag=%s, name=%s, date=%s, compressed=%s)" % (
             self.tag, self.name, self.data, self.compressed)
 
-    def output(self, file=sys.stdout, align=0, humanize=True):
-        if humanize:
+    def output(self, file=sys.stdout, align=0, extended=False):
+        if not extended:
             date = self.date.humanize()
         else:
             date = self.date.strftime("%Y-%m-%d %H:%M:%S")
 
-        print("%s\t%-*s  -> %s" % (date, align, self.tag, self.name),
-              file=file)
+        desc = "%s\t%-*s  -> %s" % (date, align, self.tag, self.name)
+
+        if extended:
+            desc += " [%s]" % self.url
+
+        print(desc, file=file)
 
 
 class BushAPI():
@@ -108,7 +113,8 @@ class BushAPI():
     def list(self):
         r = requests.get(self.url("index.php?request=list"))
         self.assert_response(r)
-        return [BushFile(**f) for f in json.loads(r.text)]
+        return [BushFile(url=self.getddl(f['tag']), **f)
+                for f in json.loads(r.text)]
 
     def upload(self, filepath, tag=None, callback=None):
 
@@ -163,6 +169,10 @@ class BushAPI():
         self.assert_status(data)
 
         return tag
+
+    def getddl(self, tag):
+        tag = urllib.parse.quote(tag)
+        return self.url("index.php?request=get&tag=%s" % tag)
 
     def download(self, tag, dest, callback=None, chunksz=8192):
 
