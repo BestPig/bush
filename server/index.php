@@ -31,7 +31,12 @@ if (isset($_GET['request'])) {
 	}
 
 	if ($_GET['request'] == "list") {
-		echo json_encode($db->getAllFiles());
+		$files = $db->getAllFiles();
+		foreach ($files as &$file) {
+			$filepath = DATAPATH."/".$file['id'].".bin";
+			$file['date'] = date('c', filemtime($filepath));
+		}
+		echo json_encode($files);
 		exit();
 	}
 
