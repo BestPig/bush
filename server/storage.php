@@ -18,12 +18,24 @@ class Storage {
 	}
 
 	public function getFile($tag) {
-		$sql = "SELECT id, name FROM files WHERE tag = :tag";
+		$sql  = "SELECT id, name FROM files WHERE tag = :tag";
 		$stmt = $this->_db->prepare($sql);
 		$stmt->bindParam(':tag', $tag);
 		$stmt->execute();
 
-		$res = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$res = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		if ($res) {
+			return $res;
+		}
+
+		$sql  = "SELECT id, name FROM files WHERE name = :name";
+		$stmt = $this->_db->prepare($sql);
+		$stmt->bindParam(':name', $tag);
+		$stmt->execute();
+
+		$res = $stmt->fetch(PDO::FETCH_ASSOC);
+
 		return $res;
 	}
 
@@ -41,19 +53,19 @@ class Storage {
 		$stmt = $this->_db->prepare($sql);
 		$stmt->bindParam(':id', $id);
 		$stmt->execute();
-        @unlink($this->_dataPath.'/'.$id.'.bin');
+		@unlink($this->_dataPath.'/'.$id.'.bin');
 	}
 
 	public function deleteFileTag($tag) {
-		$exists = $this->getFile($tag);
-		foreach ($exists as $file) {
+		$file = $this->getFile($tag);
+		if ($file) {
 			$this->deleteFileId($file['id']);
 		}
 	}
 
 	public function addFile($tag, $name, $compressed) {
-		$exists = $this->getFile($tag);
-		foreach ($exists as $file) {
+		$file = $this->getFile($tag);
+		if ($file) {
 			$this->deleteFileId($file['id']);
 		}
 		$sql = "INSERT INTO files (name, tag, compressed) VALUES (:name, :tag, :compressed)";
