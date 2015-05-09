@@ -8,6 +8,8 @@ import operator
 
 from distutils import util
 
+import arrow
+
 import bush.api
 import bush.config
 
@@ -57,7 +59,7 @@ def do_list(api, args):
 def do_wait(api, args):
 
     latest = None
-    update = datetime.datetime.now() - datetime.timedelta(seconds=args.age)
+    update = arrow.now() - datetime.timedelta(seconds=args.age)
 
     knowntags = None
 
@@ -72,7 +74,7 @@ def do_wait(api, args):
         knowntags = tags
 
     latest.output()
-    api.download(latest.tag, '.', callback=ShowProgress)
+    api.download(latest.tag, args.dest, callback=ShowProgress)
 
 
 def do_upload(api, args):
@@ -105,6 +107,8 @@ def main():
 
     sub = subs.add_parser('wait', help="wait for a new file and download it")
     sub.set_defaults(callback=do_wait)
+    sub.add_argument('dest', nargs='?', default='./',
+                     help="path where the file should be downloaded")
     sub.add_argument('-a', '--age', default=0, type=int,
                      help="this many seconds old is new")
 
