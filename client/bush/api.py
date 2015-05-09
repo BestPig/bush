@@ -139,7 +139,7 @@ class BushAPI():
         if _callback:
             del _callback
 
-        self.assert_response(r)
+        self.assert_response(r, acceptable=(201,))
         data = r.json()
         self.assert_status(data)
 
