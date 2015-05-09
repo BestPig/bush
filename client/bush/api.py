@@ -112,23 +112,33 @@ class BushAPI():
 
     def upload(self, filepath, tag=None, callback=None):
 
-        filepath = os.path.realpath(filepath)
-        basename = os.path.basename(filepath)
+        if isinstance(filepath, str):
+            filepaths = [filepath]
+        else:
+            filepaths = filepath
 
-        tag = tag or self.tag_for_path(filepath)
+        if tag is None and len(filepaths) != 1:
+            raise ValueError("Must specify tag for multifile.")
+
+        tag = tag or self.tag_for_path(filepaths[0])
 
         tmp = tempfile.TemporaryFile()
+        tar = tarfile.open("bush_upload.tar.gz", "w:gz", fileobj=tmp)
 
-        tarname = "%s.tar.gz" % basename
-        tar = tarfile.open(tarname, "w:gz", fileobj=tmp)
-        tar.add(filepath, arcname=basename)
+        basenames = []
+
+        for fp in filepaths:
+            basename = os.path.basename(fp)
+            basenames.append(basename)
+            tar.add(fp, arcname=basename)
+
         tar.close()
-
         tmp.seek(0)
 
+        filename = "%s.tar.gz" % ", ".join(basenames)
         encoder = MultipartEncoder(fields={
             'tag': tag,
-            'file': (tarname, tmp, 'application/octet-stream')
+            'file': (filename, tmp, 'application/octet-stream')
         })
 
         if callback is not None:

@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import pprint
@@ -78,7 +79,19 @@ def do_wait(api, args):
 
 
 def do_upload(api, args):
-    api.upload(args.file, tag=args.tag, callback=ShowProgress)
+
+    if args.tag is not None:
+        tag = args.tag
+    elif len(args.file) > 1:
+        tag = args.file.pop()
+        if ((os.path.isfile(tag) or os.path.isdir(tag)) and
+            not api.confirmation("Tag is also an existing file: %r." % tag,
+                                 level=bush.api.LOW)):
+            exit(1)
+    else:
+        tag = None
+
+    api.upload(args.file, tag=tag, callback=ShowProgress)
 
 
 def do_download(api, args):
@@ -116,11 +129,11 @@ def main():
     sub.add_argument('-x', '--exact', action='store_true',
                      help="show exact dates instead of ages")
 
-    sub = subs.add_parser('up', help="upload a new file")
+    sub = subs.add_parser('up', help="upload new file(s)")
     sub.set_defaults(callback=do_upload)
-    sub.add_argument('file', help='path of the file to upload')
+    sub.add_argument('file', nargs='+', help='path of the file(s) to upload')
     sub.add_argument('tag', nargs="?", default=None,
-                     help='the name associated with the file to upload')
+                     help='the name associated with the file(s) to upload')
 
     sub = subs.add_parser('dl', help="download a file")
     sub.set_defaults(callback=do_download)
