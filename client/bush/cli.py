@@ -8,6 +8,8 @@ import operator
 
 from distutils import util
 
+import arrow
+
 import bush.api
 import bush.config
 
@@ -51,13 +53,13 @@ def do_list(api, args):
     files = api.list()
     maxlen = max(len(f.tag) for f in files) if files else 0
     for f in files:
-        f.output(align=maxlen)
+        f.output(align=maxlen, humanize=not args.exact)
 
 
 def do_wait(api, args):
 
     latest = None
-    update = datetime.datetime.now() - datetime.timedelta(seconds=args.age)
+    update = arrow.now() - datetime.timedelta(seconds=args.age)
 
     knowntags = None
 
@@ -71,8 +73,8 @@ def do_wait(api, args):
             tags.add(f.tag)
         knowntags = tags
 
-    latest.output()
-    api.download(latest.tag, '.', callback=ShowProgress)
+    latest.output(humanize=not args.exact)
+    api.download(latest.tag, args.dest, callback=ShowProgress)
 
 
 def do_upload(api, args):
@@ -102,11 +104,17 @@ def main():
 
     sub = subs.add_parser('ls', help="list information about available files")
     sub.set_defaults(callback=do_list)
+    sub.add_argument('-x', '--exact', action='store_true',
+                     help="show exact dates instead of ages")
 
     sub = subs.add_parser('wait', help="wait for a new file and download it")
     sub.set_defaults(callback=do_wait)
+    sub.add_argument('dest', nargs='?', default='./',
+                     help="path where the file should be downloaded")
     sub.add_argument('-a', '--age', default=0, type=int,
                      help="this many seconds old is new")
+    sub.add_argument('-x', '--exact', action='store_true',
+                     help="show exact dates instead of ages")
 
     sub = subs.add_parser('up', help="upload a new file")
     sub.set_defaults(callback=do_upload)
@@ -127,6 +135,7 @@ def main():
 
     sub = subs.add_parser('reset', help="delete all files")
     sub.set_defaults(callback=do_reset)
+
     parser.add_argument('-u', '--url', help="API endpoint")
     parser.add_argument("-c", "--config", type=argparse.FileType("r"),
                         help="path overwriting the default configuration file")

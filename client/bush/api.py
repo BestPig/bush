@@ -4,10 +4,9 @@ import cgi
 import json
 import tarfile
 import tempfile
-import datetime
 import urllib.parse
-import dateutil.parser
 
+import arrow
 import requests
 
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
@@ -22,10 +21,7 @@ EXTREME = 4
 
 class BushFile():
 
-    def __init__(self, tag, name, date=None, compressed=None, **kwargs):
-
-        if date is None:
-            date = str(datetime.datetime.fromtimestamp(0))
+    def __init__(self, tag, name, date=0, compressed=None, **kwargs):
 
         if compressed is None:
             compressed = name.endswith('.tar.gz')
@@ -33,15 +29,20 @@ class BushFile():
         self.tag = tag
         self.compressed = compressed
         self.name = name[:-7] if self.compressed else name
-        self.date = dateutil.parser.parse(date)
+        self.date = arrow.get(date)
 
     def __repr__(self):
         return "BushFile(tag=%s, name=%s, date=%s, compressed=%s)" % (
             self.tag, self.name, self.data, self.compressed)
 
-    def output(self, file=sys.stdout, align=0):
-        print("%s\t%-*s  -> %s" % (self.date.strftime("%Y-%m-%d %H:%M:%S"),
-                                   align, self.tag, self.name), file=file)
+    def output(self, file=sys.stdout, align=0, humanize=True):
+        if humanize:
+            date = self.date.humanize()
+        else:
+            date = self.date.strftime("%Y-%m-%d %H:%M:%S")
+
+        print("%s\t%-*s  -> %s" % (date, align, self.tag, self.name),
+              file=file)
 
 
 class BushAPI():
