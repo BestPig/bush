@@ -66,12 +66,6 @@ class BushAPI():
                 return part
         return basename  # lol: this was only dots!
 
-    def sanitize_tag(self, tag):
-        for sufix in [".tar.gz"]:
-            if tag.endswith(sufix):
-                tag = tag[:-len(sufix)]
-        return tag
-
     def assert_response(self, r, acceptable=(200,)):
         if r.status_code not in acceptable:
             raise RuntimeError("HTTP status %d received." % r.status_code)
@@ -122,7 +116,6 @@ class BushAPI():
         basename = os.path.basename(filepath)
 
         tag = tag or self.tag_for_path(filepath)
-        tag = self.sanitize_tag(tag)
 
         tmp = tempfile.TemporaryFile()
 
@@ -162,8 +155,6 @@ class BushAPI():
         return tag
 
     def download(self, tag, dest, callback=None, chunksz=8192):
-
-        tag = self.sanitize_tag(tag)
 
         r = requests.get(self.url("index.php?request=get"),
                          params={"tag": tag}, stream=True)
@@ -274,8 +265,6 @@ class BushAPI():
         tar.extractall(path=dest, members=members)
 
     def delete(self, tag):
-
-        tag = self.sanitize_tag(tag)
 
         r = requests.get(self.url("index.php?request=delete"),
                          params={"tag": tag})
