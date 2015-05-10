@@ -123,6 +123,8 @@ class BushAPI():
         else:
             filepaths = filepath
 
+        filepaths = list(map(os.path.abspath, filepaths))
+
         if tag is None and len(filepaths) != 1:
             raise ValueError("Must specify tag for multifile.")
 
