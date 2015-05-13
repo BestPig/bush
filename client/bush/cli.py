@@ -160,6 +160,10 @@ def main():
     config = bush.config.load_config(args.config)
 
     url = args.url or config.get('url')
+    url_aliases = config.get('url_aliases')
+
+    if url_aliases and url in url_aliases:
+        url = url_aliases[url]
 
     if url is None:
         exit("No URL specified, check your configuration or specify --url.")
