@@ -74,7 +74,7 @@ def do_wait(api, args):
             tags.add(f.tag)
         knowntags = tags
 
-    latest.output(humanize=not args.exact)
+    latest.output(extended=args.exact)
     api.download(latest.tag, args.dest, callback=ShowProgress)
 
 
