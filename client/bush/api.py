@@ -76,7 +76,7 @@ class BushAPI():
             raise RuntimeError("HTTP status %d received." % r.status_code)
 
     def assert_status(self, r, acceptable=("OK",)):
-        if r["status"] != 'OK':
+        if r.get("status", 'OK') != 'OK':
             raise RuntimeError("Server is not OK despite sending 200 OK.")
 
     def check_target(self, dest, fdest, isdir=False, placeholder=True):
