@@ -11,6 +11,7 @@ import requests
 
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 
+import bush.meta
 
 INFO = 0
 LOW = 1
@@ -52,9 +53,21 @@ class BushFile():
 
 class BushAPI():
 
-    def __init__(self, base, token=None):
+    def __init__(self, base, username=None, password=None):
         self.base = base
-        self.token = token
+
+        self.requests = requests.session()
+
+        self.requests.headers.update({
+                'User-Agent': 'bush.py.%s' % bush.meta.__version__,
+                })
+
+        scheme = urllib.parse.urlparse(self.base)[0]
+        if (username or password) and scheme != 'https':
+            if not self.confirmation("Sending credentials over %r is insecure."
+                                     % scheme, level=EXTREME):
+                raise KeyboardInterrupt()
+            self.requests.auth = (username, password)
 
     def confirmation(self, msg, level):
         # Don't confirm anything by default!
@@ -111,7 +124,7 @@ class BushAPI():
         return True
 
     def list(self):
-        r = requests.get(self.url("index.php?request=list"))
+        r = self.requests.get(self.url("index.php?request=list"))
         self.assert_response(r)
         return [BushFile(url=self.getddl(f['tag']), **f)
                 for f in json.loads(r.text)]
@@ -160,7 +173,7 @@ class BushAPI():
 
         monitor = MultipartEncoderMonitor(encoder, _callback)
 
-        r = requests.post(self.url('index.php?request=upload'), data=monitor,
+        r = self.requests.post(self.url('index.php?request=upload'), data=monitor,
                           headers={'Content-Type': monitor.content_type})
 
         if _callback:
@@ -178,7 +191,7 @@ class BushAPI():
 
     def download(self, tag, dest, callback=None, chunksz=8192):
 
-        r = requests.get(self.url("index.php?request=get"),
+        r = self.requests.get(self.url("index.php?request=get"),
                          params={"tag": tag}, stream=True)
 
         self.assert_response(r)
@@ -288,7 +301,7 @@ class BushAPI():
 
     def delete(self, tag):
 
-        r = requests.get(self.url("index.php?request=delete"),
+        r = self.requests.get(self.url("index.php?request=delete"),
                          params={"tag": tag})
 
         self.assert_response(r)
@@ -297,7 +310,7 @@ class BushAPI():
 
     def reset(self):
 
-        r = requests.get(self.url("index.php?request=reset"))
+        r = self.requests.get(self.url("index.php?request=reset"))
 
         self.assert_response(r)
 

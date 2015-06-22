@@ -150,6 +150,8 @@ def main():
     sub.set_defaults(callback=do_reset)
 
     parser.add_argument('-u', '--url', help="API endpoint")
+    parser.add_argument('-U', '--username', help="API username")
+    parser.add_argument('-P', '--password', help="API password")
     parser.add_argument("-c", "--config", type=argparse.FileType("r"),
                         help="path overwriting the default configuration file")
     parser.add_argument('-d', '--debug', action='store_true',
@@ -159,11 +161,15 @@ def main():
 
     config = bush.config.load_config(args.config)
 
-    url = args.url or config.get('url')
-    url_aliases = config.get('url_aliases')
+    servers = config.get('servers') or [{}]
 
-    if url_aliases and url in url_aliases:
-        url = url_aliases[url]
+    for server in servers:
+        if args.url in (server.get('url'), server.get('alias')):
+            break
+    else:
+        server = servers[0] if args.url is None else {}
+
+    url = server.get('url', args.url)
 
     if url is None:
         exit("No URL specified, check your configuration or specify --url.")
@@ -174,11 +180,13 @@ The API URL doesn't end with a '/', I'll go on and assume you know what
 you are doing. But if something fails you might want to try to add one.""",
               file=sys.stderr)
 
-    api = UIAPI(url)
+    username = args.username or server.get('username')
+    password = args.password or server.get('password')
 
     try:
+        api = UIAPI(url, username=username, password=password)
         args.callback(api, args)
     except KeyboardInterrupt:
-        print()  # Canceled by user :(
+        print('interrupted')  # Canceled by user :(
     except Exception if not args.debug else () as e:
         exit(e)

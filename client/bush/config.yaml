@@ -1,6 +1,8 @@
-# The API endpoint, set this to the one you plan to use most.
-url: null
+# The first server in the list will be used by default.
 
-# url_aliases:
-#   work: https://host1/path/
-#   ctf: http://host2/path/
+servers:
+
+  - url: null
+    username: null
+    password: null
+    alias: sample
