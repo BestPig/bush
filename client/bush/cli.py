@@ -183,11 +183,10 @@ you are doing. But if something fails you might want to try to add one.""",
     username = args.username or server.get('username')
     password = args.password or server.get('password')
 
-    api = UIAPI(url, username=username, password=password)
-
     try:
+        api = UIAPI(url, username=username, password=password)
         args.callback(api, args)
     except KeyboardInterrupt:
-        print()  # Canceled by user :(
+        print('interrupted')  # Canceled by user :(
     except Exception if not args.debug else () as e:
         exit(e)

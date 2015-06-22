@@ -62,7 +62,11 @@ class BushAPI():
                 'User-Agent': 'bush.py.%s' % bush.meta.__version__,
                 })
 
-        if username or password:
+        scheme = urllib.parse.urlparse(self.base)[0]
+        if (username or password) and scheme != 'https':
+            if not self.confirmation("Sending credentials over %r is insecure."
+                                     % scheme, level=EXTREME):
+                raise KeyboardInterrupt()
             self.requests.auth = (username, password)
 
     def confirmation(self, msg, level):
