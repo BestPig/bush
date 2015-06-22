@@ -67,3 +67,7 @@ working environment!
 obscurity, if no one knows your server's endpoint everything is alright! right?
 No. This is work in progress. Use it at your own risk and on private networks or
 with public files.
+
+[![forthebadge](http://forthebadge.com/images/badges/fuck-it-ship-it.svg)](http://forthebadge.com)
+[![forthebadge](http://forthebadge.com/images/badges/built-with-love.svg)](http://forthebadge.com)
+[![forthebadge](http://forthebadge.com/images/badges/uses-badges.svg)](http://forthebadge.com)
