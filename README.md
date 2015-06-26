@@ -70,14 +70,14 @@ should also work with other software:
 
 - upload one or more selected files:
   ```sh
-  bush up %F $(zenity --entry --title="bush" --text="Enter a tag for the file(s)
-  you are uploading.")
+  bush up %F "$(zenity --entry --title='bush' --text='Enter a tag for the file(s)
+  you are uploading.')"
   ```
 
 - download file(s) from bush:
   ```sh
-  bush dl $(zenity --entry --title="bush" --text="Enter the tag of the file(s)
-  you want to download.")
+  bush dl "$(zenity --entry --title='bush' --text='Enter the tag of the file(s)
+  you want to download.')"
   ```
 
 **warning**: The commands above won't work when the command line would ask for
