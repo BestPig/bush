@@ -55,10 +55,30 @@ Here are some of the commands you can try out when your client is running:
 
 [phpinstall]: /server/README.md
 
-
 ## remarks
 
 As I mentioned **bush isn't meant for storing things**. The idea is to use it to
 send stuff to people you're working with. That is why `bush reset` exists, when
 `bush ls` becomes to long someone should run `reset`, just to have a clean
 working environment!
+
+## use bush from your file browser
+
+In **thunar** you can setup `custom actions` by using the `Edit > Configure
+Custom Actions` menu. Bellow are some commands you can use for bindings that
+should also work with other software:
+
+- upload one or more selected files:
+  ```sh
+  bush up %F $(zenity --entry --title="bush" --text="Enter a tag for the file(s)
+  you are uploading.")
+  ```
+
+- download file(s) from bush:
+  ```sh
+  bush dl $(zenity --entry --title="bush" --text="Enter the tag of the file(s)
+  you want to download.")
+  ```
+
+**warning**: The commands above won't work when the command line would ask for
+confirmation. This won't work until we have an option for prompting using a GUI.
